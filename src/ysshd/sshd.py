@@ -9,6 +9,9 @@ import bcrypt
 import fire
 from loguru import logger
 
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+
 # Define standard SSH directory path using pathlib
 HOME_DIR: Path = Path.home()
 SSH_DIR: Path = HOME_DIR / ".ssh"
@@ -125,16 +128,26 @@ class YSSHServer(asyncssh.SSHServer):
 
     def server_requested(
         self, listen_host: str, listen_port: int
-    ) -> Union[bool, Optional[Coroutine[Any, Any, None]]]:
-        logger.info(f"Server requested: {listen_host}:{listen_port}")
+    ) -> Union[bool, Awaitable[bool]]:
+        """Handle remote forwarding listener requests (ssh -R)."""
+        # Note: The actual forwarding channel handling happens later when a
+        # connection comes *to* the listener.
+        # This method just approves setting up the listener.
+        logger.info(
+            f"Remote forward listener requested on server at {listen_host}:{listen_port}"
+        )
+        # Returning True allows asyncssh to set up the listener.
+        # We don't need to manage the listener object here directly.
         return True
 
     def connection_requested(
         self, dest_host: str, dest_port: int, orig_host: str, orig_port: int
-    ) -> bool:
+    ) -> Union[bool, Awaitable[bool]]:
+        """Handle direct TCP/IP connection requests (local forwarding - ssh -L)."""
         logger.info(
-            f"Connection requested: {dest_host}:{dest_port} from {orig_host}:{orig_port}"
+            f"Local forward connection requested to {dest_host}:{dest_port} from client {orig_host}:{orig_port}"
         )
+        # Returning True allows asyncssh to establish the connection.
         return True
 
 
